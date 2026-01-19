@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+openai
+beautifulsoup4
+python-multipart
+python-dotenv
+selenium
+webdriver-manager
+

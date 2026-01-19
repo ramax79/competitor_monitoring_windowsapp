@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Мониторинг конкурентов — MVP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #0f172a;
+        --bg-elevated: #111827;
+        --accent: #38bdf8;
+        --accent-soft: rgba(56, 189, 248, 0.14);
+        --text: #e5e7eb;
+        --text-muted: #9ca3af;
+        --border: #1f2937;
+        --danger: #f97373;
+        --success: #4ade80;
+        --radius-lg: 14px;
+        --radius-md: 10px;
+        --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.9);
+        --shadow-subtle: 0 1px 0 rgba(148, 163, 184, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          sans-serif;
+        background: radial-gradient(circle at top, #1d283a, #020617 55%);
+        color: var(--text);
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+        padding: 32px 16px;
+      }
+
+      .app-shell {
+        width: 100%;
+        max-width: 1120px;
+        background: linear-gradient(135deg, #020617, #020617, #020617);
+        border-radius: 24px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: var(--shadow-soft);
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr);
+        overflow: hidden;
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding: 16px 8px;
+        }
+        .app-shell {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .pane {
+        padding: 20px 22px;
+      }
+
+      .pane--left {
+        border-right: 1px solid rgba(31, 41, 55, 0.9);
+        background: radial-gradient(circle at top left, #111827, #020617);
+      }
+
+      @media (max-width: 900px) {
+        .pane--left {
+          border-right: none;
+          border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+        }
+      }
+
+      .pane--right {
+        background: radial-gradient(circle at top right, #020617, #020617);
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .chip {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(56, 189, 248, 0.5);
+        background: radial-gradient(circle at top left, #0b1120, #020617);
+        color: var(--accent);
+      }
+
+      .subtitle {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        border: 1px solid rgba(22, 163, 74, 0.7);
+        background: radial-gradient(circle at top left, #0f172a, #022c22);
+        color: #bbf7d0;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: radial-gradient(circle at center, #bbf7d0, #22c55e);
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
+      }
+
+      .tabs {
+        display: inline-flex;
+        padding: 3px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        margin-bottom: 16px;
+      }
+
+      .tab {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        padding: 6px 11px;
+        border-radius: 999px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.16s ease-out;
+      }
+
+      .tab span {
+        font-size: 0.7rem;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        color: var(--text-muted);
+      }
+
+      .tab--active {
+        background: radial-gradient(circle at top left, #0369a1, #0f172a);
+        color: #e0f2fe;
+        box-shadow: inset 0 0 0 1px rgba(8, 47, 73, 0.9),
+          0 10px 26px rgba(8, 47, 73, 0.7);
+      }
+
+      .tab--active span {
+        background: rgba(15, 23, 42, 0.7);
+        border-color: rgba(148, 163, 184, 0.5);
+        color: #bae6fd;
+      }
+
+      .section-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+      }
+
+      .field-label-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+
+      .field-label {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      .field-hint {
+        font-size: 0.7rem;
+        color: #6b7280;
+      }
+
+      textarea,
+      input[type="url"] {
+        width: 100%;
+        border-radius: var(--radius-lg);
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        background: radial-gradient(circle at top left, #020617, #020617);
+        color: var(--text);
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 110px;
+        outline: none;
+        box-shadow: var(--shadow-subtle);
+      }
+
+      textarea:focus,
+      input[type="url"]:focus {
+        border-color: rgba(56, 189, 248, 0.8);
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5);
+      }
+
+      input[type="url"] {
+        min-height: auto;
+      }
+
+      textarea::placeholder,
+      input::placeholder {
+        color: #4b5563;
+      }
+
+      .file-drop {
+        margin-top: 10px;
+        border-radius: var(--radius-lg);
+        border: 1px dashed rgba(55, 65, 81, 0.9);
+        padding: 10px 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: radial-gradient(circle at top left, #020617, #020617);
+        cursor: pointer;
+        transition: border-color 0.15s ease-out, background 0.15s ease-out,
+          transform 0.1s ease-out;
+      }
+
+      .file-drop:hover {
+        border-color: rgba(56, 189, 248, 0.8);
+        background: radial-gradient(circle at top left, #020617, #020617);
+        transform: translateY(-0.5px);
+      }
+
+      .file-drop-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 11px;
+        background: radial-gradient(circle at top, #0b1120, #020617);
+        border: 1px solid rgba(51, 65, 85, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: var(--accent);
+      }
+
+      .file-drop-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .file-drop-title {
+        font-size: 0.8rem;
+      }
+
+      .file-drop-sub {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+      }
+
+      .file-name {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      .controls-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .btn-primary {
+        border: none;
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: radial-gradient(circle at top left, #0369a1, #0ea5e9);
+        color: #ecfeff;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 14px 35px rgba(8, 47, 73, 0.9);
+        transition: transform 0.1s ease-out, box-shadow 0.1s ease-out,
+          filter 0.08s ease-out;
+      }
+
+      .btn-primary:hover {
+        filter: brightness(1.05);
+        transform: translateY(-1px);
+        box-shadow: 0 18px 45px rgba(8, 47, 73, 0.95);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.7;
+        cursor: default;
+        box-shadow: none;
+        transform: none;
+      }
+
+      .btn-secondary {
+        border-radius: 999px;
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        background: radial-gradient(circle at top left, #020617, #020617);
+        color: var(--text-muted);
+        padding: 6px 11px;
+        font-size: 0.78rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: background 0.12s ease-out, border-color 0.12s ease-out,
+          color 0.12s ease-out, transform 0.08s ease-out;
+      }
+
+      .btn-secondary:hover {
+        background: radial-gradient(circle at top left, #020617, #020617);
+        border-color: rgba(55, 65, 81, 1);
+        color: #e5e7eb;
+        transform: translateY(-0.5px);
+      }
+
+      .badge-row {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        font-size: 0.7rem;
+        padding: 3px 7px;
+        border-radius: 999px;
+        border: 1px solid rgba(31, 41, 55, 0.95);
+        background: radial-gradient(circle at top left, #020617, #020617);
+        color: var(--text-muted);
+      }
+
+      .badge--accent {
+        border-color: rgba(56, 189, 248, 0.6);
+        color: #bae6fd;
+        background: radial-gradient(circle at top left, rgba(8, 47, 73, 0.9), #020617);
+      }
+
+      .results-shell {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      .results-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .results-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+
+      .results-subtitle {
+        font-size: 0.76rem;
+        color: var(--text-muted);
+      }
+
+      .results-body {
+        flex: 1;
+        border-radius: 18px;
+        border: 1px solid rgba(31, 41, 55, 0.95);
+        background: radial-gradient(circle at top left, #020617, #020617);
+        padding: 12px 13px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 200px;
+        max-height: 600px;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      .results-body::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .results-body::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 3px;
+      }
+
+      .results-body::-webkit-scrollbar-thumb {
+        background: rgba(56, 189, 248, 0.3);
+        border-radius: 3px;
+      }
+
+      .results-body::-webkit-scrollbar-thumb:hover {
+        background: rgba(56, 189, 248, 0.5);
+      }
+
+      .result-block {
+        border-radius: 12px;
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        background: radial-gradient(circle at top left, #020617, #020617);
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+      }
+
+      .result-block:hover {
+        border-color: rgba(56, 189, 248, 0.4);
+        box-shadow: 0 2px 8px rgba(56, 189, 248, 0.1);
+      }
+
+      .result-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .result-title {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #9ca3af;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .result-title::before {
+        content: "▶";
+        font-size: 0.6rem;
+        transition: transform 0.2s ease-out;
+        color: var(--accent);
+      }
+
+      .result-block.expanded .result-title::before {
+        transform: rotate(90deg);
+      }
+
+      .result-pill {
+        font-size: 0.7rem;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        color: var(--text-muted);
+      }
+
+      .result-content {
+        max-height: 200px;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+        opacity: 1;
+      }
+
+      .result-block {
+        overflow: visible;
+      }
+
+      .result-block:not(.expanded) .result-content {
+        max-height: 200px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .result-block:not(.expanded) .result-content::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background: linear-gradient(to top, rgba(2, 6, 23, 0.95), transparent);
+        pointer-events: none;
+      }
+
+      .result-block.expanded .result-content {
+        max-height: 2000px;
+      }
+
+      .result-block.expanded .result-content::after {
+        display: none;
+      }
+
+      .result-list {
+        list-style: none;
+        margin: 0;
+        padding-left: 0;
+      }
+
+      .result-list li {
+        font-size: 0.8rem;
+        padding: 4px 0;
+        display: flex;
+        gap: 6px;
+        line-height: 1.5;
+      }
+
+      .result-bullet {
+        width: 4px;
+        height: 4px;
+        border-radius: 999px;
+        margin-top: 8px;
+        flex-shrink: 0;
+        background: radial-gradient(circle at center, #38bdf8, transparent);
+      }
+
+      .result-list li span {
+        color: #d1d5db;
+        flex: 1;
+      }
+
+      .results-empty {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-align: center;
+        padding: 16px 8px;
+      }
+
+      .history {
+        margin-top: 10px;
+        border-radius: 16px;
+        border: 1px solid rgba(31, 41, 55, 0.95);
+        background: radial-gradient(circle at top left, #020617, #020617);
+        padding: 10px 11px;
+        max-height: 200px;
+        overflow: auto;
+      }
+
+      .history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+
+      .history-title {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: #6b7280;
+      }
+
+      .history-items {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .history-item {
+        font-size: 0.75rem;
+        color: #9ca3af;
+        padding: 6px 8px;
+        margin: 3px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease-out;
+        border: 1px solid transparent;
+        position: relative;
+      }
+
+      .history-item::before {
+        content: "👁";
+        position: absolute;
+        left: -20px;
+        opacity: 0;
+        transition: opacity 0.15s ease-out;
+        font-size: 0.7rem;
+      }
+
+      .history-item:hover {
+        background: rgba(56, 189, 248, 0.12);
+        border-color: rgba(56, 189, 248, 0.4);
+        transform: translateX(2px);
+      }
+
+      .history-item:hover::before {
+        opacity: 1;
+      }
+
+      .history-item:hover .history-item-preview {
+        color: var(--accent);
+      }
+
+      .history-item-type {
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 0.7rem;
+        color: #6b7280;
+        flex-shrink: 0;
+      }
+
+      .history-item-preview {
+        flex: 1;
+        text-align: right;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        color: #d1d5db;
+      }
+
+      .history-item-date {
+        font-size: 0.65rem;
+        color: #6b7280;
+        flex-shrink: 0;
+        margin-left: 4px;
+      }
+
+      .error-text {
+        font-size: 0.78rem;
+        color: var(--danger);
+        margin-top: 6px;
+      }
+
+      .loading-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.4);
+        animation: pulse 1s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(0.7);
+          opacity: 0.65;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="pane pane--left">
+        <div class="header">
+          <div class="title-block">
+            <div class="title">
+              Мониторинг конкурентов
+              <span class="chip">MVP ассистент</span>
+            </div>
+            <div class="subtitle">
+              Аналитика конкурентных текстов и креативов на базе GPT‑4o‑mini.
+            </div>
+          </div>
+          <div class="status-pill">
+            <div class="status-dot"></div>
+            backend / FastAPI
+          </div>
+        </div>
+
+        <div class="tabs" aria-label="Режим анализа">
+          <button
+            class="tab tab--active"
+            id="tab-text"
+            type="button"
+            data-mode="text"
+          >
+            Текст конкурента <span>GPT</span>
+          </button>
+          <button class="tab" id="tab-image" type="button" data-mode="image">
+            Изображение <span>Vision</span>
+          </button>
+          <button class="tab" id="tab-parse" type="button" data-mode="parse">
+            URL конкурента <span>Demo</span>
+          </button>
+        </div>
+
+        <div id="mode-text" data-mode-panel="text">
+          <div class="field-label-row">
+            <div class="field-label">Текст конкурента</div>
+            <div class="field-hint">лендинг, оффер, промо‑кампания</div>
+          </div>
+          <textarea
+            id="text-input"
+            placeholder="Вставьте текст конкурента — заголовок, оффер, блоки лендинга, промо‑сообщения..."
+          ></textarea>
+        </div>
+
+        <div id="mode-image" data-mode-panel="image" style="display: none">
+          <div class="field-label-row">
+            <div class="field-label">Изображение конкурента</div>
+            <div class="field-hint">баннер, скриншот сайта, упаковка</div>
+          </div>
+
+          <label class="file-drop" for="image-input">
+            <div class="file-drop-icon">+</div>
+            <div class="file-drop-text">
+              <div class="file-drop-title">Загрузить изображение</div>
+              <div class="file-drop-sub">
+                PNG / JPG, до 5 МБ. Мы не сохраняем оригинал файла.
+              </div>
+            </div>
+          </label>
+          <input
+            id="image-input"
+            type="file"
+            accept="image/*"
+            style="display: none"
+          />
+          <div id="image-file-name" class="file-name"></div>
+        </div>
+
+        <div id="mode-parse" data-mode-panel="parse" style="display: none">
+          <div class="field-label-row">
+            <div class="field-label">URL конкурента</div>
+            <div class="field-hint">для демо‑парсинга контента</div>
+          </div>
+          <input
+            id="url-input"
+            type="url"
+            placeholder="https://пример-конкурента.ru"
+          />
+        </div>
+
+        <div class="controls-row">
+          <button id="analyze-btn" class="btn-primary" type="button">
+            <span id="analyze-btn-label">Проанализировать</span>
+          </button>
+          <div class="badge-row">
+            <button
+              class="btn-secondary"
+              type="button"
+              id="load-history-btn"
+            >
+              История
+            </button>
+            <span class="badge badge--accent">GPT‑4.1 / GPT‑4o‑mini</span>
+          </div>
+        </div>
+        <div id="input-error" class="error-text" style="display: none"></div>
+      </div>
+
+      <div class="pane pane--right">
+        <div class="results-shell">
+          <div class="results-header">
+            <div>
+              <div class="results-title">Структурированная аналитика</div>
+              <div class="results-subtitle">
+                Сильные / слабые стороны, УТП и рекомендации.
+              </div>
+            </div>
+            <div class="badge">JSON → человекочитаемый вид</div>
+          </div>
+
+          <div class="results-body" id="results">
+            <div class="results-empty">
+              Заполните один из блоков слева и нажмите «Проанализировать», чтобы
+              получить разбор конкурента.
+            </div>
+          </div>
+
+          <div class="history" id="history">
+            <div class="history-header">
+              <div class="history-title">Последние запросы</div>
+              <button
+                class="btn-secondary"
+                type="button"
+                id="refresh-history-btn"
+              >
+                Обновить
+              </button>
+            </div>
+            <ul class="history-items" id="history-items"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Для локального запуска фронтенда из файла используем фиксированный адрес backend.
+      // Убедитесь, что FastAPI поднят на http://localhost:8000.
+      const API_BASE = "http://localhost:8000";
+
+      const tabs = document.querySelectorAll(".tab");
+      const panels = document.querySelectorAll("[data-mode-panel]");
+      const analyzeBtn = document.getElementById("analyze-btn");
+      const analyzeBtnLabel = document.getElementById("analyze-btn-label");
+      const inputError = document.getElementById("input-error");
+      const textInput = document.getElementById("text-input");
+      const imageInput = document.getElementById("image-input");
+      const imageFileName = document.getElementById("image-file-name");
+      const urlInput = document.getElementById("url-input");
+      const resultsEl = document.getElementById("results");
+      const historyList = document.getElementById("history-items");
+      const refreshHistoryBtn = document.getElementById("refresh-history-btn");
+      const loadHistoryBtn = document.getElementById("load-history-btn");
+
+      let currentMode = "text";
+      let isLoading = false;
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const mode = tab.dataset.mode;
+          if (!mode || mode === currentMode) return;
+
+          currentMode = mode;
+          tabs.forEach((t) => t.classList.remove("tab--active"));
+          tab.classList.add("tab--active");
+
+          panels.forEach((panel) => {
+            panel.style.display =
+              panel.dataset.modePanel === mode ? "block" : "none";
+          });
+
+          inputError.style.display = "none";
+        });
+      });
+
+      imageInput.addEventListener("change", () => {
+        const file = imageInput.files && imageInput.files[0];
+        if (file) {
+          const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+          const maxSizeMB = 5;
+          const sizeText = file.size > 1024 * 1024 
+            ? `${fileSizeMB} МБ` 
+            : `${(file.size / 1024).toFixed(2)} КБ`;
+          const statusColor = file.size > 5 * 1024 * 1024 ? "var(--danger)" : "var(--text-muted)";
+          imageFileName.innerHTML = `${file.name} <span style="color: ${statusColor};">(${sizeText}${file.size > 5 * 1024 * 1024 ? ' — превышает лимит 5 МБ' : ''})</span>`;
+        } else {
+          imageFileName.textContent = "";
+        }
+      });
+
+      function setLoading(loading) {
+        isLoading = loading;
+        analyzeBtn.disabled = loading;
+        if (loading) {
+          analyzeBtnLabel.innerHTML =
+            '<span class="loading-dot"></span> Анализ...';
+        } else {
+          analyzeBtnLabel.textContent = "Проанализировать";
+        }
+      }
+
+      function showError(msg) {
+        inputError.textContent = msg;
+        inputError.style.display = "block";
+      }
+
+      function clearError() {
+        inputError.style.display = "none";
+      }
+
+      function renderListBlock(title, pill, items) {
+        const safeItems = Array.isArray(items) ? items : [];
+        if (!safeItems.length) return "";
+        const li = safeItems
+          .map(
+            (t) =>
+              `<li><div class="result-bullet"></div><span>${String(
+                t
+              )}</span></li>`
+          )
+          .join("");
+        const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // По умолчанию блоки развернуты, но можно свернуть если много контента
+        const shouldCollapse = safeItems.length > 5;
+        return `
+          <div class="result-block ${shouldCollapse ? '' : 'expanded'}" id="${blockId}">
+            <div class="result-title-row" onclick="toggleBlock('${blockId}')" title="${shouldCollapse ? 'Кликните для просмотра всех пунктов' : 'Кликните чтобы свернуть/развернуть'}">
+              <div class="result-title">${title}</div>
+              <div class="result-pill">${pill}</div>
+            </div>
+            <div class="result-content">
+              <ul class="result-list">${li}</ul>
+            </div>
+          </div>
+        `;
+      }
+
+      function toggleBlock(blockId) {
+        const block = document.getElementById(blockId);
+        if (block) {
+          block.classList.toggle("expanded");
+        }
+      }
+
+      window.toggleBlock = toggleBlock;
+
+      function renderResults(data, mode) {
+        if (!data) {
+          resultsEl.innerHTML =
+            '<div class="results-empty">Нет данных для отображения.</div>';
+          return;
+        }
+
+        const blocks = [];
+
+        if (mode === "image") {
+          if (data.description) {
+            const descBlockId = `desc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const descLength = String(data.description).length;
+            const shouldCollapse = descLength > 300;
+            blocks.push(`
+              <div class="result-block ${shouldCollapse ? '' : 'expanded'}" id="${descBlockId}">
+                <div class="result-title-row" onclick="toggleBlock('${descBlockId}')" title="Кликните чтобы свернуть/развернуть">
+                  <div class="result-title">Описание изображения</div>
+                  <div class="result-pill">vision</div>
+                </div>
+                <div class="result-content" style="font-size:0.8rem;color:#d1d5db;line-height:1.6;">
+                  ${String(data.description)}
+                </div>
+              </div>
+            `);
+          }
+
+          blocks.push(
+            renderListBlock(
+              "Маркетинговые инсайты",
+              "insights",
+              data.marketing_insights
+            )
+          );
+
+          blocks.push(
+            renderListBlock(
+              "Оценка визуального стиля",
+              "style",
+              data.visual_style_evaluation
+            )
+          );
+
+          if (typeof data.design_score === "number") {
+            const scoreBlockId = `score-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            blocks.push(`
+              <div class="result-block expanded" id="${scoreBlockId}">
+                <div class="result-title-row" onclick="toggleBlock('${scoreBlockId}')" title="Кликните чтобы свернуть/развернуть">
+                  <div class="result-title">Оценка дизайна</div>
+                  <div class="result-pill">0–10</div>
+                </div>
+                <div class="result-content" style="font-size:0.8rem;color:#d1d5db;line-height:1.6;">
+                  Текущая оценка визуального стиля: <strong style="color:var(--accent);">${data.design_score.toFixed(
+                    1
+                  )}</strong> из 10.
+                </div>
+              </div>
+            `);
+          }
+
+          blocks.push(
+            renderListBlock(
+              "Потенциал анимации",
+              "motion",
+              data.animation_potential
+            )
+          );
+        } else {
+          blocks.push(
+            renderListBlock("Сильные стороны", "strengths", data.strengths)
+          );
+          blocks.push(
+            renderListBlock("Слабые стороны", "weaknesses", data.weaknesses)
+          );
+          blocks.push(
+            renderListBlock(
+              "Уникальные предложения",
+              "unique value",
+              data.unique_offers
+            )
+          );
+          blocks.push(
+            renderListBlock(
+              "Рекомендации по стратегии",
+              "actions",
+              data.recommendations
+            )
+          );
+        }
+
+        const filtered = blocks.filter(Boolean);
+        resultsEl.innerHTML =
+          filtered.join("") ||
+          '<div class="results-empty">Модель не вернула структурированные данные.</div>';
+      }
+
+      async function callBackend() {
+        clearError();
+        if (isLoading) return;
+
+        try {
+          setLoading(true);
+
+          if (currentMode === "text") {
+            const text = (textInput.value || "").trim();
+            if (!text) {
+              showError("Введите текст конкурента.");
+              return;
+            }
+            const resp = await fetch(`${API_BASE}/analyze_text`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text }),
+            });
+            if (!resp.ok) {
+              const err = await resp.json().catch(() => ({}));
+              throw new Error(err.detail || "Ошибка анализа текста.");
+            }
+            const data = await resp.json();
+            renderResults(data, "text");
+          } else if (currentMode === "image") {
+            const file = imageInput.files && imageInput.files[0];
+            if (!file) {
+              showError("Выберите изображение для анализа.");
+              return;
+            }
+            
+            // Валидация размера файла (5 МБ максимум)
+            const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 МБ в байтах
+            if (file.size > MAX_FILE_SIZE) {
+              showError(
+                `Файл слишком большой (${(file.size / 1024 / 1024).toFixed(2)} МБ). Максимальный размер: 5 МБ.`
+              );
+              return;
+            }
+            
+            // Валидация типа файла
+            if (!file.type.startsWith("image/")) {
+              showError("Выбранный файл не является изображением. Пожалуйста, выберите файл с расширением JPG, PNG, GIF и т.д.");
+              return;
+            }
+            
+            console.log(`[Frontend] Отправка изображения: ${file.name}, размер: ${(file.size / 1024 / 1024).toFixed(2)} МБ, тип: ${file.type}`);
+            
+            const form = new FormData();
+            form.append("file", file);
+            const resp = await fetch(`${API_BASE}/analyze_image`, {
+              method: "POST",
+              body: form,
+            });
+            if (!resp.ok) {
+              const err = await resp.json().catch(() => ({}));
+              const errorMessage = err.detail || err.message || "Ошибка анализа изображения.";
+              console.error("[Frontend] Ошибка анализа изображения:", err);
+              throw new Error(errorMessage);
+            }
+            const data = await resp.json();
+            console.log("[Frontend] Результат анализа изображения получен:", data);
+            renderResults(data, "image");
+          } else if (currentMode === "parse") {
+            const url = (urlInput.value || "").trim();
+            if (!url) {
+              showError("Введите URL конкурента.");
+              return;
+            }
+            const resp = await fetch(`${API_BASE}/parse_demo`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url }),
+            });
+            if (!resp.ok) {
+              const err = await resp.json().catch(() => ({}));
+              throw new Error(
+                err.detail || "Не удалось выполнить демо‑парсинг."
+              );
+            }
+            const data = await resp.json();
+
+            const header = [];
+            if (data.title) header.push(`TITLE: ${data.title}`);
+            if (data.h1) header.push(`H1: ${data.h1}`);
+            if (data.first_paragraph)
+              header.push(`P1: ${data.first_paragraph}`);
+
+            const parseBlockId = `parse-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const headerHtml = header.length
+              ? `<div class="result-block expanded" id="${parseBlockId}"><div class="result-title-row" onclick="toggleBlock('${parseBlockId}')" title="Кликните чтобы свернуть/развернуть"><div class="result-title">Извлечённый контент</div><div class="result-pill">parse</div></div><div class="result-content" style="font-size:0.78rem;color:#d1d5db;white-space:pre-line;line-height:1.6;">${header.join(
+                  "\n\n"
+                )}</div></div>`
+              : "";
+
+            renderResults(data.analysis || data, "text");
+            if (headerHtml) {
+              resultsEl.innerHTML = headerHtml + resultsEl.innerHTML;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+          showError(e.message || "Произошла ошибка. Проверьте консоль.");
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      analyzeBtn.addEventListener("click", callBackend);
+
+      function formatDate(dateString) {
+        try {
+          const date = new Date(dateString);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+
+          if (diffMins < 1) return "только что";
+          if (diffMins < 60) return `${diffMins} мин назад`;
+          if (diffHours < 24) return `${diffHours} ч назад`;
+          if (diffDays < 7) return `${diffDays} дн назад`;
+
+          return date.toLocaleDateString("ru-RU", {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        } catch {
+          return dateString;
+        }
+      }
+
+      let historyData = [];
+
+      function showHistoryReport(index) {
+        const item = historyData[index];
+        if (!item) return;
+
+        const mode = item.type === "text" ? "text" : item.type === "image" ? "image" : "text";
+        let data = item.payload?.analysis || {};
+
+        // Если это parse_demo, нужно показать и извлеченный контент
+        if (item.type === "parse_demo" && item.payload?.extracted) {
+          renderResults(data, "text");
+          const header = [];
+          if (item.payload.extracted.title) header.push(`TITLE: ${item.payload.extracted.title}`);
+          if (item.payload.extracted.h1) header.push(`H1: ${item.payload.extracted.h1}`);
+          if (item.payload.extracted.first_paragraph) header.push(`P1: ${item.payload.extracted.first_paragraph}`);
+
+          if (header.length) {
+            const parseBlockId = `parse-hist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const headerHtml = `<div class="result-block expanded" id="${parseBlockId}"><div class="result-title-row" onclick="toggleBlock('${parseBlockId}')" title="Кликните чтобы свернуть/развернуть"><div class="result-title">Извлечённый контент</div><div class="result-pill">parse</div></div><div class="result-content" style="font-size:0.78rem;color:#d1d5db;white-space:pre-line;line-height:1.6;">${header.join("\n\n")}</div></div>`;
+            resultsEl.innerHTML = headerHtml + resultsEl.innerHTML;
+          }
+        } else {
+          renderResults(data, mode);
+        }
+
+        // Прокрутить к результатам
+        resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      window.showHistoryReport = showHistoryReport;
+
+      async function loadHistory() {
+        try {
+          const resp = await fetch(`${API_BASE}/history`);
+          if (!resp.ok) return;
+          const data = await resp.json();
+          const items = Array.isArray(data.items) ? data.items : [];
+          historyData = items.slice().reverse(); // Сохраняем для использования в showHistoryReport
+
+          if (!items.length) {
+            historyList.innerHTML =
+              '<li class="history-item"><span class="history-item-preview">История пуста — отправьте первый запрос.</span></li>';
+            return;
+          }
+
+          historyList.innerHTML = historyData
+            .map((item, index) => {
+              const typeLabel =
+                item.type === "text"
+                  ? "TEXT"
+                  : item.type === "image"
+                  ? "IMAGE"
+                  : "PARSE";
+              const preview =
+                (item.payload &&
+                  (item.payload.input_preview ||
+                    item.payload.url ||
+                    item.payload.filename)) ||
+                "";
+              const dateStr = formatDate(item.timestamp);
+              return `
+                <li class="history-item" data-index="${index}" title="Кликните для просмотра полного отчета">
+                  <span class="history-item-type">${typeLabel}</span>
+                  <span class="history-item-preview">${String(
+                    preview
+                  ).slice(0, 50)}</span>
+                  <span class="history-item-date">${dateStr}</span>
+                </li>
+              `;
+            })
+            .join("");
+
+          // После рендера добавляем обработчики клика
+          document.querySelectorAll(".history-item").forEach((el) => {
+            const index = parseInt(el.dataset.index);
+            if (!isNaN(index)) {
+              el.addEventListener("click", () => {
+                showHistoryReport(index);
+              });
+            }
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      refreshHistoryBtn.addEventListener("click", loadHistory);
+      loadHistoryBtn.addEventListener("click", loadHistory);
+
+      loadHistory();
+    </script>
+  </body>
+  </html>
+
