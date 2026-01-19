@@ -44,8 +44,9 @@ Backend реализован на **FastAPI**, фронтенд — минима
 - FastAPI
 - Uvicorn
 - OpenAI (GPT‑4.1 / GPT‑4o‑mini, Vision)
-- httpx, BeautifulSoup4
+- Selenium, BeautifulSoup4
 - Мини‑фронтенд на чистом HTML + JS
+- **Desktop приложение на PyQt6** (в папке `desktop_app/`)
 
 ---
 
@@ -164,4 +165,44 @@ Backend реализован на **FastAPI**, фронтенд — минима
   - блок истории запросов.
 
 Дополнительные технические детали, структура проекта и примеры запросов описаны в `docs.md`.
+
+---
+
+## Desktop приложение (PyQt6)
+
+В папке `desktop_app/` находится десктопное приложение на PyQt6, которое полностью повторяет функционал веб-версии.
+
+### Быстрый запуск
+
+1. **Установите зависимости:**
+   ```bash
+   cd desktop_app
+   pip install -r requirements.txt
+   ```
+
+2. **Запустите backend** (в корне проекта):
+   ```bash
+   uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+3. **Запустите приложение:**
+   ```bash
+   python desktop_app/main.py
+   ```
+
+### Сборка в .exe
+
+```bash
+cd desktop_app
+build.bat
+```
+
+Или вручную:
+```bash
+pyinstaller CompetitorMonitor.spec --clean --noconfirm
+```
+
+Готовый `.exe` файл будет в `desktop_app/dist/CompetitorMonitor.exe`.
+
+Подробные инструкции: см. `desktop_app/README.md` и `desktop_app/INSTALL.md`.
 
